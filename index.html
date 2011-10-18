@@ -70,6 +70,18 @@ a {
 .msg {
     color: red;
 }
+#tooltip {
+    border: 1px solid black;
+    box-shadow: 5px 5px 3px #000;
+    border-radius: 1ex;
+    padding: 1ex;
+    display: none;
+    background: silver;
+    color: black;
+    position: absolute;
+    left: 0;
+    top: 0;
+}
 </style>
 <script>
 
@@ -247,18 +259,19 @@ function handle_report (report, ts, jqxhr) {
 
     if (!details) o.find(".details").hide();
 
-
     var exists = $("#reports .report#" + report_id);
     if (exists.size()) {
         if (age < 32) {
             exists.animate({ opacity: 0 }, 'slow', function () {
                 exists.html(o.html()); // replaceWith confuses masonry
-                    exists.css({ opacity: 0 });
-                    exists.animate({ opacity: 1 }, 'slow');
+                if (!details) enable_tooltips("#" + report_id);
+                exists.css({ opacity: 0 });
+                exists.animate({ opacity: 1 }, 'slow');
                 $("#reports").masonry('reload');
             });
         } else {
             exists.html(o.html());
+            if (!details) enable_tooltips("#" + report_id);
         }
         return;
     }
@@ -274,9 +287,29 @@ function handle_report (report, ts, jqxhr) {
 
     if (spot) spot.before(o);
     else $("#reports").append(o);
+    if (!details) enable_tooltips("#" + report_id);
 
     $('#reports').masonry('reload', o);
 }
+
+function enable_tooltips (selector) {
+    $("#tooltip").mouseout(function () { $(this).hide(); });
+    $(selector).find("h3, h4").hover(function () {
+        $("#tooltip").html( $(this).parent().find("div.details").html() );
+        $("#tooltip").css({
+            left: $(this).offset().left + $(this).outerWidth() / 2 - $("#tooltip").outerWidth() / 2,
+            top: $(this).offset().top - $("#tooltip").outerHeight(),
+        });
+        $("#tooltip").fadeIn('fast');
+    }, function () {
+        $("#tooltip").fadeOut('fast');
+    });
+}
+
+function disable_tooltips() {
+    $("h3, h4").unbind();
+}
+
 
 $(function () {
     $('#reports').masonry({ columnWidth: 50, isResizable: true, isAnimated: true });
@@ -304,16 +337,20 @@ $(function () {
         $(".details").hide('slow', function () {
             $("#reports").masonry('reload');
         });
+        enable_tooltips("#reports");
     }, function () {
         details = true;
         $(".details").show();
         $("#reports").masonry('reload');
+        disable_tooltips();
     });
 });
 
 </script>
 
-<button id=toggledetails>Toggle details</button> Monit/t is a poor man's <a href="http://mmonit.com/">M/Monit</a>. Just the overview (AJAX + jQuery), no alerts yet. Interested? Contact me at #####@juerd.nl!
-<div id=reports>
 
-</div>
+<button id=toggledetails>Toggle details</button> Monit/t is a poor man's <a href="http://mmonit.com/">M/Monit</a>. Just the overview (AJAX + jQuery), no alerts yet. Interested? Contact me at #####@juerd.nl!
+
+<div id=reports></div>
+
+<div id=tooltip></div>
