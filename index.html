@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<title>Monit/t</title>
+<script src="jquery-1.6.4.min.js"></script>
+<script src="jquery.masonry.min.js"></script>
+<style>
+body {
+    background: black;
+    color: white;
+    font-family: "DejaVu Sans", "Arial", sans-serif;
+    font-size: 8pt;
+}
+h1, h2, h3, h4, h5, h6 {
+    margin: 0;
+}
+a {
+    color: chartreuse;
+}
+.report, .service {
+    background: #222;
+    padding: 1ex;
+    border: 2px solid white;
+    border-radius: 1ex;
+    margin: 1ex;
+}
+.report {
+    margin-bottom: 1em;
+    float: left;
+}
+.hostname, .name {
+    padding: .2ex;
+}
+.stale .hostname {
+    background: maroon;
+}
+.stale .age {
+    color: red;
+    text-decoration: blink;
+}
+.stale .age:after {
+    content: " (host down?)";
+}
+.bad .hostname, .bad .name {
+    background: red;
+}
+.good .hostname, .good .name {
+    background: chartreuse;
+    color: black;
+}
+.unmonitored .name, .stale .name {
+    background: silver;
+    color: black;
+}
+.hostname, .name {
+    text-align: center;
+    padding-left: 1ex;
+    padding-right: 1ex;
+}
+.report .uname {
+    font-style: italic;
+}
+.hostname {
+    font-size: 120%;
+}
+.service {
+    font-size: 110%;
+}
+.age {
+    font-size: 75%;
+}
+.msg {
+    color: red;
+}
+</style>
+<script>
+
+var details = true;
+
+function f_sec (s) {
+    var days = Math.floor(s / 86400);
+    var hours = Math.floor((s % 86400) / 3600);
+    var minutes = Math.floor((s % 3600) / 60);
+    var str = "";
+    if (days) str = days + (days == 1 ? " day, " : " days, ");
+    if (days || hours) str += hours + (hours == 1 ? " hour, " : " hours, ");
+    return str + minutes + (minutes == 1 ? " minute" : " minutes");
+}
+
+function f_kb (kb) {
+    var tb = Math.round(kb / 1073741824);
+    var gb = Math.round(kb / 1048576);
+    var mb = Math.round(kb / 1024);
+    if (tb > 10) return tb + " TB";
+    if (gb > 10) return gb + " GB";
+    if (mb > 10) return mb + " MB";
+    return kb + " kB"
+}
+
+function f_type (type) {
+    if (type == 0) return "Filesystem";
+    if (type == 1) return "Directory";
+    if (type == 2) return "File";
+    if (type == 3) return "Process";
+    if (type == 4) return "Host";
+    if (type == 5) return "System";
+    if (type == 6) return "Fifo";
+    if (type == 7) return "Program";
+    return "Unknown type " + type
+}
+
+function handle_reports_list (html) {
+    var tree = $(html);
+    var reports = tree.find("a[href$='.xml']").each(function () {
+        $.get("reports/" + $(this).attr('href'), handle_report);
+    });
+}
+
+function render_service () {
+    var service = $(this);
+    var status_class = (service.find("status").text() != "0") ? "bad" : "good";
+    if (service.find("monitor").text() == "0") status_class = "unmonitored";
+
+    var name = service.attr("name");
+    if (!name) name = service.find("name").text();  // old monit
+
+    var type = service.attr("type");  // old monit; try attr before element
+    if (!type) type = service.find("type:first").text();  // new monit
+
+    var o = $(
+        "<div class='service " + status_class + "'>"
+        + "<h4 class=name><span class=details>" + f_type(type) + " '</span>" + name + "<span class=details>'</span></h4>"
+        + "</div>"
+    );
+
+    if (status_class == "unmonitored") o.find(".name").append("<span class=details> (not monitored)</span>");
+
+    var msg = service.find("status_message").text();
+    if (msg) o.append("<div class=msg>" + msg + "</div>");
+
+    var d = $("<div class=details></div>");
+
+    var uptime = service.find("uptime").text();
+    if (uptime) d.append("<div class=uptime>Uptime: " + f_sec(uptime) + "</div>");
+
+    var children = service.find("children").text();
+    if (children > 0) d.append("<div class=children>Children: " + children + "</div>");
+
+    var kb = service.find("memory kilobytetotal").text();
+    if (!kb) kb = service.find("memory kilobyte").text();
+    var pct = service.find("memory percenttotal").text();
+    if (!pct) pct = service.find("memory percent").text();
+    if (kb) d.append("<div class=memory>Memory usage: " + f_kb(kb) + " (" + pct + "%)</div>");
+
+    var swapkb = service.find("swap kilobyte").text();
+    var swappct = service.find("swap percent").text();
+    if (swapkb) d.append("<div class=swap>Swap usage: " + f_kb(swapkb) + " (" + swappct + "%)</div>");
+
+    service.find("port").each(function () {
+        var host = $(this).find("hostname").text();
+        var port = $(this).find("portnumber").text();
+        var proto = $(this).find("protocol").text();
+        var type = $(this).find("type").text();
+        var time = $(this).find("responsetime").text();
+        if (type.match(/SSL/)) proto = "SSL+" + proto;
+        d.append("<div class=port>" + host + ":" + port + " (" + proto + "): " + time + " sec.</div>");
+    });
+
+
+    var load = service.find("system load");
+    if (load.size()) d.append(
+        "<div class=load>Load averages: " 
+        + load.find("avg01").text() + ", "
+        + load.find("avg05").text() + ", "
+        + load.find("avg15").text() 
+        + "</div>"
+    );
+    var cpu = service.find("system cpu");
+    if (cpu.size()) d.append(
+        "<div class=cpu>CPU usage: " 
+        + cpu.find("user").text() + "% user, "
+        + cpu.find("system").text() + "% sys, "
+        + cpu.find("wait").text() + "% wait"
+        + "</div>"
+    );
+
+    o.append(d);
+    return o;
+}
+
+function handle_report (report, ts, jqxhr) {
+    report = $(report);
+
+    var heretime = Date.parse((new Date()).toString());
+    var theretime = Date.parse(jqxhr.getResponseHeader("Last-Modified"));
+
+    var age = (heretime - theretime) / 1000;
+    var id = report.find("monit").attr("id");
+    if (!id) id = report.find("server id").text();  // old monit
+
+    var version = report.find("monit").attr("version");
+    if (!version) version = report.find("server version").text();  // old monit
+
+    var svr = report.find("server:first");
+    var pf  = report.find("platform:first");
+
+    var hostname = svr.find("localhostname").text();
+    var report_id = "report_" + hostname;
+
+    var status_class = "good";
+    report.find("status").each(function () { if ($(this).text() > 0) status_class = "bad" });
+
+    if (age > 300) status_class = "stale";
+
+    var o = $(
+        "<div class='report " + status_class + "' id='" + report_id + "'>"
+        + "<h3 class=hostname>" + hostname + "</h3><div class=details>"
+        + "<div class=uname>" + pf.find("name").text() + " " + pf.find("release").text() + "</div>"
+        + "<div class=memory>" + f_kb(pf.find("memory").text()) + " RAM</div>"
+        + "<div class=uptime>Monit uptime: " + f_sec(svr.find("uptime").text()) + "</div>"
+        + "<div class=monitversion>Monit version: " + version + "</div>"
+        + "</div></div>"
+    );
+    var services = report.find("services service").map(render_service);
+    if (!services.size()) services = report.find("monit > service").map(render_service);  // old monit
+    services.each(function () { o.append(this) });
+
+    var agetext = $("<div class=age>This info is " + age + " seconds old.</div>");
+    o.append(agetext);
+
+    o.data('id', id);
+
+    if (!details) o.find(".details").hide();
+
+
+    var exists = $("#reports .report#" + report_id);
+    if (exists.size()) {
+        if (age < 32) {
+            exists.animate({ opacity: 0 }, 'slow', function () {
+                exists.html(o.html()); // replaceWith confuses masonry
+                    exists.css({ opacity: 0 });
+                    exists.animate({ opacity: 1 }, 'slow');
+                $("#reports").masonry('reload');
+            });
+        } else {
+            exists.html(o.html());
+        }
+        return;
+    }
+
+    var spot;
+    $("#reports .report").each(function () {
+        if ($(this).attr('id') > report_id) {
+            spot = $(this);
+            return false;
+        }
+        return true;
+    });
+
+    if (spot) spot.before(o);
+    else $("#reports").append(o);
+
+    $('#reports').masonry('reload', o);
+}
+
+$(function () {
+    $('#reports').masonry({ columnWidth: 50, isResizable: true, isAnimated: true });
+
+    $.get("reports/", handle_reports_list);
+    
+    setInterval(function () {
+        $(".report").each(function () {
+            var url = "reports/" + $(this).data("id") + ".xml";
+            $.get(url, handle_report);
+        });
+    }, 30000);
+
+    setInterval(function () {
+        $(".age").each(function () {
+            var t = $(this);
+            var h = t.html();
+            var s = parseInt(h.match(/(\d+)/)[0]) + 1;
+            t.html( h.replace(/\d+/, s) );
+        });
+    }, 1000);
+
+    $("#toggledetails").toggle(function () {
+        details = false;
+        $(".details").hide('slow', function () {
+            $("#reports").masonry('reload');
+        });
+    }, function () {
+        details = true;
+        $(".details").show();
+        $("#reports").masonry('reload');
+    });
+});
+
+</script>
+
+<button id=toggledetails>Toggle details</button> Monit/t is a poor man's <a href="http://mmonit.com/">M/Monit</a>. Just the overview (AJAX + jQuery), no alerts yet. Interested? Contact me at #####@juerd.nl!
+<div id=reports>
+
+</div>

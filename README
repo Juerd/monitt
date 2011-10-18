@@ -1,0 +1,45 @@
+Monit/t is a simple collector for Monit's XML reports with a client side
+viewer. Written in 2011 by Juerd Waalboer <juerd#@tnx.nl>
+
+http://github.com/Juerd/monitt
+
+The viewer requires a recent standards compliant browser. If it doesn't work,
+try another browser. Patches welcome :)
+
+Released under the MIT license. If you want it under another OSI compliant
+license, contact the author.
+
+
+Installation:
+
+    mkdir reports
+    chmod 777 reports
+    echo Options +Indexes > reports/.htaccess   # Directory index required
+
+Security caveats:
+
+    - You may want to lock the 'reports' directory to prevent new files from
+      being added by the web server. The supplied collector won't add
+      executable files (like *.php) but perhaps some other process on your
+      system will. Note that write permission for the directory is only needed
+      to automatically add new hosts.
+    - Reporting hosts are not authenticated if you don't set up some mechanism
+      for that. To avoid XSS problems, run Monit/t on its own sub domain.
+    - Monit reports its username and password in the XML! Use strict IP based
+      ACLs or have monit listen only on localhost, and use a tunnel to access
+      its web interface.
+
+Users:
+
+    - Monit/t does not have any authentication or authorization built-in, but
+      you can use the webserver's functionality for that.
+    - It's easy to grant a specific user access to a certain subset of hosts:
+        mkdir -p widgetcorp/reports;
+        cd widgetcorp
+        ln -s ../index.html ../jquery* .
+        htpasswd -c .htpasswd widgetcorp
+        vim .htaccess  # set up HTTP authentication
+        cd reports
+        ln -s ../../reports/01234567890abcdef0123456789abcdef.xml .
+        ln -s ../../reports/01234567890abcdef0123456789abcdef.xml .
+        ln -s ../../reports/01234567890abcdef0123456789abcdef.xml .
