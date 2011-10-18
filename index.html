@@ -164,6 +164,23 @@ function render_service () {
         d.append("<div class=port>" + host + ":" + port + " (" + proto + "): " + time + " sec.</div>");
     });
 
+    var df = service.find("block");
+    if (df.size()) d.append(
+        "<div class=df>Space: "
+        + df.find("usage").text() + " ("
+        + df.find("percent").text() + "%) of "
+        + df.find("total").text()
+        + "</div>"
+    );
+
+    var dfi = service.find("inode");
+    if (dfi.size()) d.append(
+        "<div class=dfi>Inodes: "
+        + dfi.find("usage").text() + " ("
+        + dfi.find("percent").text() + "%) of "
+        + dfi.find("total").text()
+        + "</div>"
+    );
 
     var load = service.find("system load");
     if (load.size()) d.append(
