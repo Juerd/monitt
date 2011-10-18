@@ -203,7 +203,7 @@ function handle_report (report, ts, jqxhr) {
     var pf  = report.find("platform:first");
 
     var hostname = svr.find("localhostname").text();
-    var report_id = "report_" + hostname;
+    var report_id = "report_" + hostname.replace(/\./g, '-');
 
     var status_class = "good";
     report.find("status").each(function () { if ($(this).text() > 0) status_class = "bad" });
