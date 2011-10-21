@@ -263,7 +263,7 @@ function handle_report (report, ts, jqxhr) {
 
     o.data('id', id);
 
-    if (!details) o.find(".details").hide();
+    if (details) o.find(".details").show();
 
     var exists = $("#reports .report#" + report_id);
     if (exists.size()) {
