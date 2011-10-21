@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<meta name="viewport" content="width=device-width">
 <title>Monit/t</title>
 <script src="jquery-1.6.4.min.js"></script>
 <script src="jquery.masonry.min.js"></script>
@@ -82,10 +83,13 @@ a {
     left: 0;
     top: 0;
 }
+.details {
+    display: none;
+}
 </style>
 <script>
 
-var details = true;
+var details = false;
 
 function f_sec (s) {
     var days = Math.floor(s / 86400);
@@ -222,6 +226,8 @@ function handle_report (report, ts, jqxhr) {
     var theretime = Date.parse(jqxhr.getResponseHeader("Last-Modified"));
 
     var age = (heretime - theretime) / 1000;
+    if (isNaN(age)) return;
+
     var id = report.find("monit").attr("id");
     if (!id) id = report.find("server id").text();  // old monit
 
@@ -252,7 +258,7 @@ function handle_report (report, ts, jqxhr) {
     if (!services.size()) services = report.find("monit > service").map(render_service);  // old monit
     services.each(function () { o.append(this) });
 
-    var agetext = $("<div class=age>This info is " + age + " seconds old.</div>");
+    var agetext = $("<div class=age>This info is " + age + " s old.</div>");
     o.append(agetext);
 
     o.data('id', id);
@@ -264,6 +270,8 @@ function handle_report (report, ts, jqxhr) {
         if (age < 32) {
             exists.animate({ opacity: 0 }, 'slow', function () {
                 exists.html(o.html()); // replaceWith confuses masonry
+                exists.attr("class", o.attr("class"));
+
                 if (!details) enable_tooltips("#" + report_id);
                 exists.css({ opacity: 0 });
                 exists.animate({ opacity: 1 }, 'slow');
@@ -312,7 +320,7 @@ function disable_tooltips() {
 
 
 $(function () {
-    $('#reports').masonry({ columnWidth: 50, isResizable: true, isAnimated: true });
+    $('#reports').masonry({ columnWidth: 20, isResizable: true, isAnimated: true });
 
     $.get("reports/", handle_reports_list);
     
@@ -332,24 +340,27 @@ $(function () {
         });
     }, 1000);
 
-    $("#toggledetails").toggle(function () {
-        details = false;
-        $(".details").hide('slow', function () {
+    $("#toggledetails").click(function () {
+        details = !details;
+        if (details) {
+            $(".details").show();
             $("#reports").masonry('reload');
-        });
-        enable_tooltips("#reports");
-    }, function () {
-        details = true;
-        $(".details").show();
-        $("#reports").masonry('reload');
-        disable_tooltips();
+            disable_tooltips();
+            $("#toggledetails").html("Hide details");
+        } else {
+            $(".details").hide('slow', function () {
+                $("#reports").masonry('reload');
+            });
+            enable_tooltips("#reports");
+            $("#toggledetails").html("Show details");
+        }
     });
 });
 
 </script>
 
 
-<button id=toggledetails>Toggle details</button> Monit/t is a poor man's <a href="http://mmonit.com/">M/Monit</a>. Just the overview (AJAX + jQuery), no alerts yet. Interested? Contact me at #####@juerd.nl!
+<button id=toggledetails>Show details</button> Monit/t is a poor man's <a href="http://mmonit.com/">M/Monit</a>. Just the overview (AJAX + jQuery), no alerts yet. Interested? Contact me at #####@juerd.nl!
 
 <div id=reports></div>
 
